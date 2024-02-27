@@ -26,6 +26,36 @@ import (
 	"strings"
 )
 
+func main() {
+	runArgs, mustExit := parseCommandLineArgs()
+	if mustExit {
+		return
+	}
+
+	scriptPath := runArgs.ScriptToRun
+	cwd, _ := os.Getwd()
+	if !path.IsAbs(scriptPath) {
+		scriptPath = path.Join(cwd, scriptPath)
+	}
+
+	scriptPath = resolveScriptPath(runArgs.ScriptToRun)
+	if scriptPath == "" {
+		println("Script not found: ", scriptPath)
+		os.Exit(1)
+		return
+	}
+
+	awaiter := bootstrapProgpJS(scriptPath, runArgs.Debug, nil, registerProgpJsModules)
+
+	// Will wait until the VM can exit.
+	//
+	// The VM can't exit if there is background task remaining (ex: a webserver).
+	// If you don't call awaiter then your app will quit immediately and your server
+	// will not be able to execute.
+	//
+	awaiter()
+}
+
 func resolveScriptPath(scriptPath string) string {
 	stat, err := os.Stat(scriptPath)
 
@@ -46,38 +76,8 @@ func resolveScriptPath(scriptPath string) string {
 	return scriptPath
 }
 
-func main() {
-	runArgs, mustExit := parseCommandLineArgs()
-	if mustExit {
-		return
-	}
-
-	scriptPath := runArgs.ScriptToRun
-	cwd, _ := os.Getwd()
-	if !path.IsAbs(scriptPath) {
-		scriptPath = path.Join(cwd, scriptPath)
-	}
-
-	scriptPath = resolveScriptPath(runArgs.ScriptToRun)
-	if scriptPath == "" {
-		println("Script not found: ", scriptPath)
-		os.Exit(1)
-		return
-	}
-
-	awaiter := bootstrapProgpJS(scriptPath, runArgs.Debug, nil, RegisterMyModules)
-
-	// Will wait until the VM can exit.
-	//
-	// The VM can't exit if there is background task remaining (ex: a webserver).
-	// If you don't call awaiter then your app will quit immediately and your server
-	// will not be able to execute.
-	//
-	awaiter()
-}
-
-// RegisterMyModules registers our all ProgpJS modules.
-func RegisterMyModules() {
+// registerProgpJsModules registers our all ProgpJS modules.
+func registerProgpJsModules() {
 	// Required core modules.
 	//
 	modCore.InstallProgpJsModule()
